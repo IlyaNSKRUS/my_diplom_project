@@ -67,13 +67,35 @@ validate_password( пароль , пользователь = Нет , password_v
 Метод set_password() в Django устанавливает пароль пользователя на заданную сырую строку, беря на себя хэширование пароля. При этом он не сохраняет объект User.
 
 Применение механизма Signal для отправки письма после регистрации
+!!!Чтобы сигналы работали необходимо импортировать их в views.py - from backend.signals import new_user_registered!!!
 https://habr.com/ru/companies/otus/articles/873118/
+https://habr.com/ru/companies/kokocgroup/articles/826238/
 EmailMultiAlternatives в Django — класс для включения в email нескольких версий контента. Например, можно отправить и текстовую, и HTML-версию сообщения.
 from django.dispatch import receiver — это импорт декоратора ресивера для использования в Django. С его помощью можно подключать функции к сигналам, например, для уведомления о завершении HTTP-запроса или сохранении модели.
 from django.dispatch import Signal — это импорт класса Signal для определения собственных сигналов в Django.
+Настройка почты в settings.py:
+...
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_HOST_USER = 'ilyagl.nsk@yandex.ru'
+EMAIL_HOST_PASSWORD = 'bqwzosnvgorydeiy'
+EMAIL_PORT = '465'
+EMAIL_USE_SSL = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER
+...
 Пароль для почты - bqwzosnvgorydeiy
 
 Авторизация пользователя
+Для авторизации по токену необходимо в settings.py:
+- в INSTALLED_APPS добавить - 'rest_framework.authtoken'
+- REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+}
+
 https://habr.com/ru/companies/otus/articles/855086/
 class LoginAccount(APIView):
 Для аутентификации в Django можно использовать функцию authenticate(). Она принимает в качестве ключевых аргументов учётные данные (по умолчанию имя пользователя и пароль), проверяет их против каждого бэкенд-сервера аутентификации и возвращает объект User, если учётные данные верны для бэкенд-сервера. Если учётные данные не верны для любого бэкенд-сервера или если бэкенд вызывает PermissionDenied, функция возвращает None.
@@ -82,3 +104,27 @@ class LoginAccount(APIView):
 Метод get_or_create() в Django возвращает объект, а если его нет в базе данных, то добавляет в неё новый объект.
 Синтаксис: obj, created = ModelName.objects.get_or_create(field1=value1, field2=value2, defaults={other_field: other_value})
 
+Класс для управления данными учетной записи пользователя
+class AccountDetails(APIView):
+Метод GET получение:
+!!!Пользователь должен быть авторизован!!!
+Для проверки авторизации в HEADERS запроса необходимо добавить Токен
+
+Класс для управления контактной информацией
+class ContactView(APIView):
+Метод GET получение:
+!!!Пользователь должен быть авторизован!!!
+Для проверки авторизации в HEADERS запроса необходимо добавить Токен
+Метод POST создание:
+Реализовано в POST-запросе с типом тела «form-data» в Postman
+form-data используется для отправки данных в виде составных данных. Это полезно для загрузки файлов или отправки больших объёмов двоичных данных или данных, отличных от ASCII. Однако form-data не обрабатывает кодировку файлов и других сложных структур в самом теле запроса.
+
+raw обеспечивает наибольшую гибкость, позволяя отправлять данные любого типа без изменений. Он поддерживает различные типы контента, такие как JSON, XML и обычный текст. Этот формат подходит для отправки сложных данных или данных пользовательского формата, включая функции JavaScript и языки разметки. В отличие от form-data, необработанные данные отправляются как есть, без дополнительного кодирования или изменения.
+
+
+Метод PUT обновление:
+Реализована функция обновления при возможности нескольких контактов у пользователя
+
+Метод DELETE обновление:
+https://dev.to/adnankattekaden/django-rest-framework-crud-guide-51o1
+В запросе в items передаются id контактов для удаления 
