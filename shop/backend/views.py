@@ -1,3 +1,5 @@
+from str_to_bool import str_to_bool
+
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.contrib.auth import authenticate
@@ -8,11 +10,14 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
 from yaml import load as load_yaml, Loader
 from django.db.models import Q
 
+
 from backend.models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, ConfirmEmailToken, Contact
-from backend.serializers import UserSerializer, ContactSerializer
+from backend.serializers import UserSerializer, ContactSerializer, CategorySerializer, ShopSerializer, \
+    ProductInfoSerializer
 from backend.signals import new_user_registered
 
 from django.contrib.auth.models import update_last_login
@@ -190,6 +195,30 @@ class LoginAccount(APIView):
             return JsonResponse({'Status': False, 'Errors': 'Не удалось авторизовать'})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+
+
+class LogoutAccount(APIView):
+    """
+    Класс для выхода пользователя из системы
+    """
+
+    # Авторизация методом POST
+    def get(self, request, *args, **kwargs):
+        """
+            Выход пользователя из системы.
+
+            Args:
+                request (Request): Объект Django запроса.
+
+            Returns:
+                JsonResponse: Ответ с указанием статуса операции и любых ошибок.
+            """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Пользователь не авторизован'}, status=403)
+
+        request.user.auth_token.delete()
+
+        return JsonResponse({'Status': True, 'Message': 'Пользователь вышел из системы'})
 
 
 class ContactView(APIView):
@@ -385,5 +414,123 @@ class PartnerUpdate(APIView):
                                                         value=value)
 
                 return JsonResponse({'Status': True})
+
+        return JsonResponse({'Status': False, 'Errors': 'Не указана ссылка на файл с данными для загрузки'})
+
+
+class CategoryView(ListAPIView):
+    """
+    Класс для просмотра категорий
+    """
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class ShopView(ListAPIView):
+    """
+    Класс для просмотра списка магазинов
+    """
+    queryset = Shop.objects.filter(status=True)
+    serializer_class = ShopSerializer
+
+
+class ProductInfoView(APIView):
+    """
+        Класс для просмотра информации о продуктах
+
+        Методы:
+        - get: Получение информации о продуктах согласно заданных фильтров.
+
+        Attributes:
+        - None
+        """
+
+    def get(self, request: Request, *args, **kwargs):
+        """
+               Получение информации о продуктах согласно заданных фильтров.
+
+               Args:
+               - request (Request): Объект Django запроса.
+
+               Returns:
+               - Response: Ответ, содержащий информацию о продукте.
+               """
+        query = Q(shop__status=True)
+        shop_id = request.query_params.get('shop_id')
+        category_id = request.query_params.get('category_id')
+
+        if shop_id:
+            query = query & Q(shop_id=shop_id)
+
+        if category_id:
+            query = query & Q(product__category_id=category_id)
+
+        # фильтруем и отбрасываем дуликаты
+        queryset = ProductInfo.objects.filter(
+            query).select_related(
+            'shop', 'product__category').prefetch_related(
+            'product_parameters__parameter').distinct()
+
+        serializer = ProductInfoSerializer(queryset, many=True)
+
+        return Response(serializer.data)
+
+
+class PartnerStatus(APIView):
+    """
+       Класс для управления статусом поставщика.
+
+       Methods:
+       - get: Получение статуса поставщика.
+       - post: Изменение статуса поставщика.
+
+       Attributes:
+       - None
+       """
+    # получить текущий статус
+    def get(self, request, *args, **kwargs):
+        """
+               Получение статуса поставщика.
+
+               Args:
+               - request (Request): Объект Django запроса.
+
+               Returns:
+               - Response: Ответ, содержащий статус поставщика.
+               """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Требуется авторизация'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
+        shop = request.user.shop
+        serializer = ShopSerializer(shop)
+        return Response(serializer.data)
+
+    # изменить текущий статус
+    def post(self, request, *args, **kwargs):
+        """
+               Изменение статуса поставщика.
+
+               Args:
+               - request (Request): Объект Django запроса.
+
+               Returns:
+               - JsonResponse: Ответ с указанием статуса операции и любых ошибок.
+               """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Требуется авторизация'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+        status = request.data.get('status')
+        print(f'status= {status}')
+        if status:
+            try:
+                Shop.objects.filter(user_id=request.user.id).update(status=str_to_bool(status))
+                return JsonResponse({'Status': True, 'Статус поставщика': status})
+            except ValueError as error:
+                return JsonResponse({'Status': False, 'Errors': str(error)})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
