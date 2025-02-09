@@ -104,6 +104,16 @@ class LoginAccount(APIView):
 Метод get_or_create() в Django возвращает объект, а если его нет в базе данных, то добавляет в неё новый объект.
 Синтаксис: obj, created = ModelName.objects.get_or_create(field1=value1, field2=value2, defaults={other_field: other_value})
 
+Сбос пароля:
+- https://github.com/anexia-it/django-rest-passwordreset
+- используется пакет django_rest_passwordreset, который предоставляет стратегию сброса пароля для Django Rest Framework, где пользователи могут запрашивать токены сброса пароля через зарегистрированный адрес электронной почты
+- pip install django-rest-passwordreset
+- Добавляется таблица "django_rest_passwordreset_resetpasswordtoken" в БД
+- Добавляем "Сигнал" password_reset_token_created в signal.py 
+
+
+
+
 Класс для управления данными учетной записи пользователя
 class AccountDetails(APIView):
 Метод GET получение:
@@ -125,6 +135,41 @@ raw обеспечивает наибольшую гибкость, позвол
 Метод PUT обновление:
 Реализована функция обновления при возможности нескольких контактов у пользователя
 
-Метод DELETE обновление:
+Метод DELETE удаление:
 https://dev.to/adnankattekaden/django-rest-framework-crud-guide-51o1
-В запросе в items передаются id контактов для удаления 
+В запросе в items передаются id контактов для удаления
+
+Класс для управления статусом поставщика
+class PartnerState(APIView):
+
+Для преобразования строки в логическое значение bool необходимо импортировать дибилиотеку python-strtobool
+pip install python-strtobool
+
+
+Класс для управления корзиной покупок пользователя
+class BasketView(APIView):
+Метод GET получение:
+
+
+Метод POST создание/добавление:
+ujson — это ультрабыстрый кодировщик и декодер JSON для Python, написанный на языке C. Библиотека может парсить из строк и файлов, а также конвертировать объекты в JSON-строки.
+loads() — загружает данные UJSON и преобразует их в словарь.
+Postman:
+form-data - {"items":"{"order": 1, "quantity": 2, "product_info": 11}"} - 1 позиция в заказе
+Несколько позиций в заказе:
+form-data - key - items / value - [{"order": "2", "product_info": "11", "quantity": "5"}, {"order": "2", "product_info": "22", "quantity": "5"}]
+--form 'items="[{\"order\": \"2\", \"product_info\": \"11\", \"quantity\": \"5\"}, {\"order\": \"2\", \"product_info\": \"22\", \"quantity\": \"5\"}]"'
+
+Метод PUT изменение кол-ва:
+
+Postman:
+form-data - {"items":"{"id": 4, "quantity": 5}"}
+id - идентификатор позиции заказа (OrderItem)
+
+Метод DELETE удаление заказа из корзины:
+Postman:
+raw - {"items":"4"}
+id - идентификатор позиции заказа (OrderItem)
+
+
+
